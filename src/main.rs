@@ -169,6 +169,14 @@ fn main() {
                 .default_value("3"),
         )
         .arg(
+            Arg::with_name("max_id")
+                .long("max-id")
+                .takes_value(true)
+                .help("ID of the last game/row to process, inclusive (allows sharding a sweep across processes)")
+                .required(false)
+                .default_value("4294967295"),
+        )
+        .arg(
             Arg::with_name("threads")
                 .long("threads")
                 .takes_value(true)
@@ -201,6 +209,7 @@ fn main() {
     let number_of_threads = get_arg_number("threads");
     // To skip games already dealt with or that are old and invalid
     let min_game_id = get_arg_number("start_id");
+    let max_game_id = get_arg_number("max_id");
     let db_path = matches.value_of("database").unwrap();
     let test = matches.occurrences_of("test") > 0;
     let multi_tinue = matches.occurrences_of("multi_tinue") > 0;
@@ -210,6 +219,9 @@ fn main() {
     }
     if plies_to_undo <= 1 {
         panic!("plies_to_undo must be greater than 1 to make sense");
+    }
+    if max_game_id < min_game_id {
+        panic!("max_id must be greater than or equal to start_id");
     }
     if number_of_threads == 0 {
         panic!("at least 1 thread is required to run");
@@ -222,6 +234,7 @@ fn main() {
     println!("plies_to_undo={}", plies_to_undo);
     println!("max_depth={}", max_depth);
     println!("min_game_id={}", min_game_id);
+    println!("max_game_id={}", max_game_id);
     println!("db_path={}", db_path);
     println!("threads={}", number_of_threads);
 
@@ -249,10 +262,10 @@ fn main() {
 
     // Do this step in its own block because `stmt` needs to go out of scope before we can take ownership of `conn` again
     let gamerows = {
-        let mut stmt = conn.prepare("SELECT id, notation, result, size FROM games WHERE (result = ? or result = ?) and id > ? AND size = ?")
+        let mut stmt = conn.prepare("SELECT id, notation, result, size FROM games WHERE (result = ? or result = ?) and id >= ? and id <= ? AND size = ?")
             .unwrap();
 
-        stmt.query_map(params!["R-0", "0-R", min_game_id - 1, board_size], |row| {
+        stmt.query_map(params!["R-0", "0-R", min_game_id, max_game_id, board_size], |row| {
             Ok(GameRow {
                 id: row.get(0)?,
                 notation: row.get(1)?,
