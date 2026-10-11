@@ -1,4 +1,3 @@
-#![feature(slice_group_by)]
 use board_game_traits::{Color, GameResult, Position as PositionTrait};
 use clap::{App, Arg};
 use pgn_traits::PgnPosition;
@@ -346,7 +345,7 @@ fn tinuemove_to_options(tmvs: &[TinueMove]) -> Vec<TinueMoveOptions> {
         })
         .collect();
 
-    let groups = trs.group_by(|(_, next1), (_, next2)| next1 == next2);
+    let groups = trs.chunk_by(|(_, next1), (_, next2)| next1 == next2);
 
     groups
         .map(|group| TinueMoveOptions {
